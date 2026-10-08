@@ -1,0 +1,506 @@
+#!/usr/bin/env python3
+"""
+Generate composite SHACL shapes files for CDIF profiles by merging building
+block rules.shacl files.
+
+Reads CDIF building block SHACL rules from metadataBuildingBlocks/_sources/
+and produces a single merged Turtle file with unified prefixes and
+priority-based conflict resolution.
+
+Supports two profiles:
+  - discovery (default): CDIFDiscoveryProfile shapes
+  - complete: CDIFcompleteProfile (discovery + data description + provenance)
+
+Usage:
+    python generate_shacl_shapes.py [--profile PROFILE] [--bb-dir PATH] [--output PATH] [-v]
+
+The --bb-dir defaults to the metadataBuildingBlocks/_sources/ directory
+detected relative to this script or via the CDIF_BB_DIR environment variable.
+"""
+
+import argparse
+import os
+import sys
+from datetime import date
+from pathlib import Path
+
+from rdflib import Graph, Namespace, URIRef, BNode
+from rdflib.namespace import RDF, RDFS, XSD, OWL
+
+# ---------------------------------------------------------------------------
+# Namespaces
+# ---------------------------------------------------------------------------
+
+SH = Namespace("http://www.w3.org/ns/shacl#")
+SCHEMA = Namespace("http://schema.org/")
+CDIFD = Namespace("https://cdif.org/validation/0.1/shacl#")
+DCTERMS = Namespace("http://purl.org/dc/terms/")
+TIME = Namespace("http://www.w3.org/2006/time#")
+PROV = Namespace("http://www.w3.org/ns/prov#")
+DQV = Namespace("http://www.w3.org/ns/dqv#")
+SPDX = Namespace("http://spdx.org/rdf/terms#")
+CDI = Namespace("http://ddialliance.org/Specification/DDI-CDI/1.0/RDF/")
+SOSO = Namespace("http://science-on-schema.org/1.2.3/validation/shacl#")
+
+# ---------------------------------------------------------------------------
+# CDIFDiscoveryProfile building blocks, ordered by merge priority.
+# Highest priority first: sub-building blocks define authoritative shapes;
+# composites and profile-level copies are lower priority.
+#
+# When the same named shape URI (e.g. cdifd:CDIFDefinedTermShape) appears in
+# multiple files, the first file in this list wins and later copies are
+# skipped.  This ensures the most specific / authoritative definition is kept.
+# ---------------------------------------------------------------------------
+
+CDIF_DISCOVERY_BLOCKS = [
+    # --- Sub-building blocks (leaf components, most authoritative) ---
+    "schemaorgProperties/identifier",
+    "schemaorgProperties/person",
+    "schemaorgProperties/organization",
+    "schemaorgProperties/definedTerm",
+    "schemaorgProperties/dataDownload",
+    "schemaorgProperties/webAPI",
+    "schemaorgProperties/spatialExtent",
+    "schemaorgProperties/temporalExtent",
+    "schemaorgProperties/variableMeasured",
+    "schemaorgProperties/monetaryGrant",
+    "schemaorgProperties/agentInRole",
+    "schemaorgProperties/additionalProperty",
+    "schemaorgProperties/labeledLink",
+    "schemaorgProperties/action",
+    "schemaorgProperties/instrument",
+    "schemaorgProperties/statisticalVariable",
+    "provProperties/generatedBy",
+    "provProperties/derivedFrom",
+    "qualityProperties/qualityMeasure",
+    # --- CDIF composite building blocks ---
+    "cdifDataType/cdifCatalogRecord",
+    # --- CDIF aggregate (core) ---
+    "profiles/cdifProfile/cdifCore",
+    # --- Profile level (lowest priority -- shapes here are copies) ---
+    "profiles/cdifCompositeProfile/CoreDiscovery",
+]
+
+# ---------------------------------------------------------------------------
+# CDIFcompleteProfile building blocks.
+# Includes everything from CDIFDiscoveryProfile plus provenance activity shapes
+# (cdifProv and provActivity), data description, physical mapping, and
+# long data building blocks.  cdifVariableMeasured adds the enhanced
+# propertyID validation beyond the base variableMeasured shapes.
+# ---------------------------------------------------------------------------
+
+CDIF_COMPLETE_BLOCKS = [
+    # --- Sub-building blocks (leaf components, most authoritative) ---
+    "schemaorgProperties/identifier",
+    "schemaorgProperties/person",
+    "schemaorgProperties/organization",
+    "schemaorgProperties/definedTerm",
+    "schemaorgProperties/dataDownload",
+    "schemaorgProperties/webAPI",
+    "schemaorgProperties/spatialExtent",
+    "schemaorgProperties/temporalExtent",
+    "schemaorgProperties/variableMeasured",
+    "schemaorgProperties/monetaryGrant",
+    "schemaorgProperties/agentInRole",
+    "schemaorgProperties/additionalProperty",
+    "schemaorgProperties/labeledLink",
+    "schemaorgProperties/action",
+    "schemaorgProperties/instrument",
+    "schemaorgProperties/statisticalVariable",
+    "provProperties/generatedBy",
+    "provProperties/provActivity",
+    "provProperties/derivedFrom",
+    "qualityProperties/qualityMeasure",
+    # --- CDIF composite building blocks ---
+    "cdifDataType/cdifCatalogRecord",
+    "cdifDataType/cdifProvActivity",
+    # --- Data description building blocks ---
+    "cdifDataType/cdifInstanceVariable",
+    "cdifDataType/cdifPhysicalMapping",
+    "cdifDataType/cdifDataCube",
+    "cdifDataType/cdifTabularData",
+    "cdifDataType/cdifLongData",
+    # --- Data structure building blocks ---
+    "cdifDataType/cdifDataStructureComponent",
+    "cdifDataType/cdifDescriptorVariable",
+    "cdifDataType/cdifRepresentedVariable",
+    "cdifDataType/cdifKey",
+    "cdifDataType/cdifValueDomain",
+    "cdifDataType/cdifStatistics",
+    "cdifDataType/cdifEnumerationDomain",
+    "cdifDataType/cdifReference",
+    # --- CDIF aggregate (core) ---
+    "profiles/cdifProfile/cdifCore",
+    # --- Profile level (lowest priority -- shapes here are copies) ---
+    "profiles/cdifProfile/cdifDataDescription",
+    "profiles/cdifProfile/cdifDataStructure",
+    "profiles/cdifProfile/cdifProvenance",
+    "profiles/cdifProfile/cdifManifest",
+    "profiles/cdifCompositeProfile/cdifComplete",
+]
+
+# Per-profile (incremental) block sets. Each = the discovery base plus the
+# blocks that profile introduces, and deliberately NOT the other profiles'
+# blocks/requirements. This lets a record be validated against exactly the
+# profiles it declares (via ConformanceValidate) -- e.g. a discovery+provenance
+# record is checked against provenance shapes without being required to also
+# carry data-description content.
+_DATADESC_BLOCKS = CDIF_DISCOVERY_BLOCKS + [
+    "cdifDataType/cdifInstanceVariable",
+    "cdifDataType/cdifPhysicalMapping",
+    "cdifDataType/cdifDataCube",
+    "cdifDataType/cdifTabularData",
+    "cdifDataType/cdifLongData",
+    "profiles/cdifProfile/cdifDataDescription",
+]
+_DATASTRUCT_BLOCKS = _DATADESC_BLOCKS + [
+    "cdifDataType/cdifDataStructureComponent",
+    "cdifDataType/cdifDescriptorVariable",
+    "cdifDataType/cdifRepresentedVariable",
+    "cdifDataType/cdifKey",
+    "cdifDataType/cdifValueDomain",
+    "cdifDataType/cdifStatistics",
+    "cdifDataType/cdifEnumerationDomain",
+    "cdifDataType/cdifReference",
+    "profiles/cdifProfile/cdifDataStructure",
+]
+_PROVENANCE_BLOCKS = CDIF_DISCOVERY_BLOCKS + [
+    "provProperties/provActivity",
+    "cdifDataType/cdifProvActivity",
+    "profiles/cdifProfile/cdifProvenance",
+]
+_MANIFEST_BLOCKS = CDIF_DISCOVERY_BLOCKS + [
+    "profiles/cdifProfile/cdifManifest",
+]
+
+PROFILES = {
+    "discovery": {
+        "blocks": CDIF_DISCOVERY_BLOCKS,
+        "label": "CDIF Discovery Profile",
+        "default_output": "ShaclValidation/CDIF-Discovery-Shapes.ttl",
+    },
+    "data_description": {
+        "blocks": _DATADESC_BLOCKS,
+        "label": "CDIF Data Description Profile",
+        "default_output": "ShaclValidation/CDIF-DataDescription-Shapes.ttl",
+    },
+    "data_structure": {
+        "blocks": _DATASTRUCT_BLOCKS,
+        "label": "CDIF Data Structure Profile",
+        "default_output": "ShaclValidation/CDIF-DataStructure-Shapes.ttl",
+    },
+    "provenance": {
+        "blocks": _PROVENANCE_BLOCKS,
+        "label": "CDIF Provenance Profile",
+        "default_output": "ShaclValidation/CDIF-Provenance-Shapes.ttl",
+    },
+    "manifest": {
+        "blocks": _MANIFEST_BLOCKS,
+        "label": "CDIF Manifest Profile",
+        "default_output": "ShaclValidation/CDIF-Manifest-Shapes.ttl",
+    },
+    "complete": {
+        "blocks": CDIF_COMPLETE_BLOCKS,
+        "label": "CDIF Complete Profile",
+        "default_output": "ShaclValidation/CDIF-Complete-Shapes.ttl",
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def find_bb_dir():
+    """Find the building blocks _sources directory."""
+    # Try environment variable first
+    env = os.environ.get("CDIF_BB_DIR")
+    if env and Path(env).is_dir():
+        return Path(env)
+
+    # Try common relative locations from the script directory
+    script_dir = Path(__file__).resolve().parent
+    candidates = [
+        script_dir / "BuildingBlockSubmodule" / "_sources",
+        script_dir.parent / "metadataBuildingBlocks" / "_sources",
+        # Windows OneDrive paths
+        Path.home() / "OneDrive" / "Documents" / "GithubC" / "USGIN"
+            / "metadataBuildingBlocks" / "_sources",
+        Path.home() / "OneDrive" / "Documents" / "GithubC" / "smrgeoinfo"
+            / "OCGbuildingBlockTest" / "_sources",
+    ]
+    for c in candidates:
+        if c.is_dir():
+            return c
+    return None
+
+
+def find_named_shapes(graph):
+    """Return all named (non-blank) shape URIs defined in a graph.
+
+    A named shape is a URIRef that appears as the subject of an
+    ``rdf:type sh:NodeShape`` or ``rdf:type sh:PropertyShape`` triple.
+    """
+    shapes = set()
+    for s in graph.subjects(RDF.type, SH.NodeShape):
+        if isinstance(s, URIRef):
+            shapes.add(s)
+    for s in graph.subjects(RDF.type, SH.PropertyShape):
+        if isinstance(s, URIRef):
+            shapes.add(s)
+    return shapes
+
+
+def extract_cbd(graph, subject):
+    """Extract the Concise Bounded Description of *subject*.
+
+    Returns all triples where *subject* is the subject, plus recursively
+    all triples reachable through blank-node objects.  Named URI objects
+    are **not** followed (their definitions are handled separately).
+    """
+    triples = set()
+    visited = set()
+
+    def follow(node):
+        if node in visited:
+            return
+        visited.add(node)
+        for s, p, o in graph.triples((node, None, None)):
+            triples.add((s, p, o))
+            if isinstance(o, BNode):
+                follow(o)
+
+    follow(subject)
+    return triples
+
+
+def short_name(uri):
+    """Abbreviate a CDIFD or SOSO URI for display."""
+    s = str(uri)
+    prefix = "https://cdif.org/validation/0.1/shacl#"
+    if s.startswith(prefix):
+        return "cdifd:" + s[len(prefix):]
+    soso_prefix = "http://science-on-schema.org/1.2.3/validation/shacl#"
+    if s.startswith(soso_prefix):
+        return "soso:" + s[len(soso_prefix):]
+    return s
+
+
+# ---------------------------------------------------------------------------
+# Merge
+# ---------------------------------------------------------------------------
+
+def merge_shapes(bb_dir, blocks, verbose=False):
+    """Merge building block rules.shacl files with priority-based conflict
+    resolution.  The first file to define a named shape wins; later
+    duplicates are skipped with a warning.
+    """
+    merged = Graph()
+    claimed = {}        # shape URI -> source file (relative path)
+    file_count = 0
+    shape_count = 0
+    conflict_count = 0
+    triple_count = 0
+
+    for block in blocks:
+        shacl_path = bb_dir / block / "rules.shacl"
+        if not shacl_path.exists():
+            if verbose:
+                print(f"  SKIP (not found): {block}/rules.shacl")
+            continue
+
+        tmp = Graph()
+        try:
+            # Parse from CR-normalized text, not the path. A working copy checked
+            # out with CRLF (autocrlf=true overriding the repo's eol=lf) puts CR
+            # inside the sh:select """...""" literals; rdflib keeps it in the
+            # literal VALUE and re-emits it as an escaped \r, so the bundle
+            # differs by ~130 lines from one generated on an LF checkout, for no
+            # semantic reason. The committed rules.shacl blobs are all LF.
+            text = shacl_path.read_text(encoding="utf-8").replace("\r" + chr(10), chr(10))
+            tmp.parse(data=text, format="turtle")
+        except Exception as exc:
+            print(f"  ERROR parsing {block}/rules.shacl: {exc}",
+                  file=sys.stderr)
+            continue
+
+        file_count += 1
+        rel = block + "/rules.shacl"
+
+        if verbose:
+            print(f"  {rel}  ({len(tmp)} triples)")
+
+        # Identify named shapes in this file
+        file_shapes = find_named_shapes(tmp)
+        new_shapes = set()
+        skip_shapes = set()
+
+        for shape in file_shapes:
+            if shape in claimed:
+                skip_shapes.add(shape)
+                conflict_count += 1
+                if verbose:
+                    print(f"    CONFLICT: {short_name(shape)}  "
+                          f"(kept from {claimed[shape]})")
+            else:
+                new_shapes.add(shape)
+                claimed[shape] = rel
+                shape_count += 1
+
+        # Collect triples for new shapes (CBD includes blank-node trees)
+        triples_to_add = set()
+        for shape in new_shapes:
+            triples_to_add |= extract_cbd(tmp, shape)
+
+        added = 0
+        for triple in triples_to_add:
+            merged.add(triple)
+            added += 1
+        triple_count += added
+
+        if verbose and new_shapes:
+            print(f"    Added {len(new_shapes)} shapes ({added} triples)")
+
+    stats = {
+        "files": file_count,
+        "shapes": shape_count,
+        "conflicts": conflict_count,
+        "triples": triple_count,
+    }
+    return merged, claimed, stats
+
+
+def bind_prefixes(graph):
+    """Bind standard prefixes for clean Turtle serialization."""
+    graph.bind("sh", SH)
+    graph.bind("schema", SCHEMA)
+    graph.bind("cdifd", CDIFD)
+    graph.bind("xsd", XSD)
+    graph.bind("rdf", RDF)
+    graph.bind("rdfs", RDFS)
+    graph.bind("dcterms", DCTERMS)
+    graph.bind("time", TIME)
+    graph.bind("prov", PROV)
+    graph.bind("dqv", DQV)
+    graph.bind("owl", OWL)
+    graph.bind("spdx", SPDX)
+    graph.bind("cdi", CDI)
+    graph.bind("soso", SOSO)
+
+
+def _source_label(bb_dir):
+    """Machine-independent label for the header.
+
+    bb_dir is whatever --bb-dir was given, and find_bb_dir() returns absolute
+    paths in every branch -- so stamping it verbatim put a local absolute path
+    into a committed artifact and made the header churn per machine. The last
+    two components identify the source tree and are stable everywhere.
+    """
+    parts = Path(bb_dir).parts
+    return "/".join(parts[-2:]) if len(parts) >= 2 else str(bb_dir)
+
+
+def make_header(stats, bb_dir, profile_label="CDIF Discovery Profile",
+                profile_name="discovery"):
+    """Return a Turtle comment block for the file header."""
+    today = date.today().isoformat()
+    return (
+        f"# {profile_label} -- Composite SHACL Shapes\n"
+        f"# Generated by generate_shacl_shapes.py --profile {profile_name} "
+        f"from {stats['files']} building block rules.shacl files\n"
+        f"# Date: {today}\n"
+        f"# Source: {_source_label(bb_dir)}\n"
+        f"# Shapes: {stats['shapes']} | "
+        f"Conflicts resolved: {stats['conflicts']} | "
+        f"Triples: {stats['triples']}\n"
+        f"#\n"
+        f"# DO NOT EDIT -- regenerate with: "
+        f"python generate_shacl_shapes.py --profile {profile_name}\n"
+    )
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Generate composite SHACL shapes from CDIF building blocks"
+    )
+    parser.add_argument(
+        "--profile", "-p",
+        choices=list(PROFILES.keys()),
+        default="discovery",
+        help="Profile to generate shapes for (default: discovery)",
+    )
+    parser.add_argument(
+        "--bb-dir",
+        type=Path,
+        default=None,
+        help="Path to building blocks _sources/ directory "
+             "(default: auto-detect or CDIF_BB_DIR env var)",
+    )
+    parser.add_argument(
+        "--output", "-o",
+        type=Path,
+        default=None,
+        help="Output Turtle file (default: profile-specific filename)",
+    )
+    parser.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Print detailed merge progress",
+    )
+    args = parser.parse_args()
+
+    # Resolve profile
+    profile = PROFILES[args.profile]
+    blocks = profile["blocks"]
+    output = args.output or Path(profile["default_output"])
+
+    # Resolve building blocks directory
+    bb_dir = args.bb_dir or find_bb_dir()
+    if not bb_dir or not bb_dir.is_dir():
+        print(
+            "ERROR: Cannot find building blocks _sources/ directory.\n"
+            "Use --bb-dir or set CDIF_BB_DIR environment variable.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    print(f"Profile: {profile['label']}")
+    print(f"Building blocks: {bb_dir}")
+    print(f"Output: {output}")
+    print(f"Merging {len(blocks)} building block rule sets...\n")
+
+    # Merge
+    merged, claimed, stats = merge_shapes(
+        bb_dir, blocks, verbose=args.verbose
+    )
+
+    # Bind prefixes and serialize
+    bind_prefixes(merged)
+    turtle_str = merged.serialize(format="turtle")
+    header = make_header(stats, bb_dir,
+                         profile_label=profile["label"],
+                         profile_name=args.profile)
+
+    # newline=\n deliberately: in text mode Windows writes CRLF, and every
+    # run then rewrites all ~1600 lines of each bundle against an LF baseline,
+    # burying the real diff. The bundles are committed with LF on all platforms.
+    with open(output, "w", encoding="utf-8", newline="\n") as f:
+        f.write(header)
+        f.write("\n")
+        f.write(turtle_str)
+
+    # Summary
+    print(f"\nDone: {stats['shapes']} shapes from {stats['files']} files "
+          f"({stats['triples']} triples)")
+    if stats["conflicts"]:
+        print(f"  {stats['conflicts']} conflicts resolved "
+              f"(higher-priority version kept)")
+    print(f"  Written to {output}")
+
+
+if __name__ == "__main__":
+    main()

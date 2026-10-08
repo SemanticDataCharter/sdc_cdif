@@ -1,0 +1,14 @@
+sdccdif
+Copyright 2026 Axius SDC, Inc.
+
+Licensed under the Apache License, Version 2.0.
+
+This package's output follows the Cross-Domain Interoperability Framework (CDIF) profiles published by CODATA
+(https://cross-domain-interoperability-framework.github.io/cdifbook/) and the CDIF metadata building blocks
+(https://github.com/Cross-Domain-Interoperability-Framework/metadataBuildingBlocks), used as Creative Commons
+Attribution 4.0 sources. The tests validate against the CDIF validation repository
+(https://github.com/Cross-Domain-Interoperability-Framework/validation, CC0) at a pinned commit. The pinned validation artifacts
+are copied into data/ under their own licences, named by commit, so a passing document says which CDIF it passed.
+
+The sixteen exceptional values in src/sdccdif/data/sdc4-exceptional-values.json are extracted from the SDC4 reference
+model schema (https://semanticdatacharter.com/ns/sdc4/sdc4.xsd), Semantic Data Charter.

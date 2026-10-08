@@ -1,0 +1,58 @@
+@prefix cdifd: <https://cdif.org/validation/0.1/shacl#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix schema: <http://schema.org/> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Codelist as a whole (skos:ConceptScheme constrained for CDIF use).
+# Derived from CDIFCodelistProfileStructuredSchema.json required properties.
+cdifd:CDIFCodelistShape a sh:NodeShape ;
+    sh:targetClass skos:ConceptScheme ;
+    sh:nodeKind sh:IRI ;
+    sh:message "A CDIF codelist must have a resolvable IRI as @id." ;
+    sh:property [ a sh:PropertyShape ;
+            sh:minCount 1 ;
+            sh:message "schema:identifier is required on a CDIF codelist (string or PropertyValue)." ;
+            sh:path schema:identifier ] ,
+        [ a sh:PropertyShape ;
+            sh:datatype xsd:string ;
+            sh:minCount 1 ;
+            sh:maxCount 1 ;
+            sh:message "schema:dateModified is required (ISO 8601 date string)." ;
+            sh:path schema:dateModified ] ,
+        [ a sh:PropertyShape ;
+            sh:class skos:Concept ;
+            sh:minCount 1 ;
+            sh:message "A codelist must declare at least one skos:hasTopConcept." ;
+            sh:path skos:hasTopConcept ] ;
+    sh:or ( [ a sh:PropertyShape ;
+                sh:path schema:license ;
+                sh:minCount 1 ]
+            [ a sh:PropertyShape ;
+                sh:path schema:conditionsOfAccess ;
+                sh:minCount 1 ] ) ;
+    sh:message "Either schema:license or schema:conditionsOfAccess must be provided." .
+
+# Concept inside a CDIF codelist (CdifCodelistConcept).
+# Required properties per the JSON schema's $defs/CdifCodelistConcept.
+cdifd:CDIFCodelistConceptShape a sh:NodeShape ;
+    sh:targetClass skos:Concept ;
+    sh:nodeKind sh:IRI ;
+    sh:message "A CDIF codelist concept must have a resolvable IRI as @id." ;
+    sh:property [ a sh:PropertyShape ;
+            sh:class skos:ConceptScheme ;
+            sh:minCount 1 ;
+            sh:maxCount 1 ;
+            sh:message "Every concept must declare skos:inScheme referencing its ConceptScheme." ;
+            sh:path skos:inScheme ] ,
+        [ a sh:PropertyShape ;
+            sh:minCount 1 ;
+            sh:message "skos:prefLabel is required on every concept." ;
+            sh:path skos:prefLabel ] ,
+        [ a sh:PropertyShape ;
+            sh:datatype xsd:string ;
+            sh:minCount 1 ;
+            sh:message "skos:notation is required on every concept." ;
+            sh:path skos:notation ] .

@@ -1,0 +1,341 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "title": "CDIF Codelist",
+    "description": "A controlled-vocabulary codelist implemented as a skos:ConceptScheme constrained for CDIF use. The scheme must have a resolvable @id and identify its top concepts via skos:hasTopConcept; each concept (CdifCodelistConcept) must have a resolvable @id, skos:inScheme, skos:prefLabel, and skos:notation. Hierarchical concepts must declare both skos:narrower (for JSON tree traversal) and skos:broader (for upward navigation) where hierarchy exists. CDIF metadata properties (schema:identifier, schema:dateModified, schema:license or schema:conditionsOfAccess) take precedence over the equivalent dcterms properties from the base skos:ConceptScheme.",
+    "properties": {
+        "@context": {
+            "description": "JSON-LD context (an object) declaring the skos namespace prefix and any additional prefixes used in concept URIs.",
+            "type": "object",
+            "properties": {
+                "skos": {
+                    "const": "http://www.w3.org/2004/02/skos/core#"
+                }
+            },
+            "required": [
+                "skos"
+            ]
+        },
+        "@id": {
+            "type": "string",
+            "description": "URI identifier for this concept scheme."
+        },
+        "@type": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "contains": {
+                "const": "skos:ConceptScheme"
+            },
+            "minItems": 1
+        },
+        "schema:identifier": {
+            "description": "Primary identifier for the codelist. May be a string URI or a structured PropertyValue.",
+            "anyOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "@type": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "contains": {
+                                "const": "schema:PropertyValue"
+                            }
+                        },
+                        "schema:propertyID": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "@id"
+                                    ],
+                                    "properties": {
+                                        "@id": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "schema:value": {
+                            "type": "string"
+                        },
+                        "schema:url": {
+                            "type": "string"
+                        }
+                    }
+                }
+            ]
+        },
+        "schema:dateModified": {
+            "type": "string",
+            "description": "ISO 8601 date when the codelist was last modified."
+        },
+        "schema:url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Web location of a page describing the codelist.",
+            "default": "missing"
+        },
+        "schema:license": {
+            "description": "License for the codelist.",
+            "type": "array",
+            "items": {
+                "anyOf": [
+                    {
+                        "type": "string"
+                    },
+                    {
+                        "type": "object",
+                        "required": [
+                            "@id"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                            "@id": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "schema:conditionsOfAccess": {
+            "description": "Text statement of access conditions for the codelist.",
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "skos:prefLabel": {
+            "description": "Preferred lexical label for the concept scheme. Required. A single\nstring, a single language-tagged value, or an array of language-tagged\nvalues.\n\n**Uniqueness rule.** Each language should appear at most once in the\nset of prefLabel values. Two prefLabel values with duplicate `@language`\ntags are non-conformant. Consumers may reject or arbitrarily pick one.\n\n**Multilinguality.** For codelists intended for multilingual use,\nsupply an array of language-tagged values — one per supported locale.\nWhen a bare string is supplied (no `@language` tag), consumers treat\nit as untagged and MAY infer the language from the enclosing document's\n`@context` or from `schema:inLanguage` on the codelist itself.\n\n**Relationship to skos:altLabel.** Alternate labels (acronyms,\nspelling variants, obsolete names) go on `skos:altLabel`, NOT on\n`prefLabel`. A concept scheme has exactly one preferred label per\nlanguage.\n",
+            "type": "string"
+        },
+        "skos:definition": {
+            "description": "Formal explanation of the meaning or purpose of this concept scheme.",
+            "type": "string"
+        },
+        "skos:note": {
+            "description": "General note about the concept scheme.",
+            "type": "string"
+        },
+        "skos:hasTopConcept": {
+            "description": "Top-level concepts that have no skos:broader in this scheme. Required for hierarchical codelists.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "$ref": "#/$defs/CdifCodelistConcept"
+            }
+        },
+        "schema:subjectOf": {
+            "description": "Catalog record describing this codelist as CDIF-conformant metadata. Must declare conformance to the cdifCodelist profile via dcterms:conformsTo and be typed as schema:Dataset with schema:additionalType including dcat:CatalogRecord.",
+            "type": "object",
+            "properties": {
+                "@type": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "contains": {
+                        "const": "schema:Dataset"
+                    },
+                    "minItems": 1
+                },
+                "schema:additionalType": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/cdifConceptOrTermOrString"
+                    },
+                    "contains": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "@id"
+                        ],
+                        "properties": {
+                            "@id": {
+                                "const": "dcat:CatalogRecord"
+                            }
+                        }
+                    },
+                    "minItems": 1
+                },
+                "dcterms:conformsTo": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "@id": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "@id"
+                        ]
+                    },
+                    "contains": {
+                        "type": "object",
+                        "required": [
+                            "@id"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                            "@id": {
+                                "const": "https://w3id.org/cdif/codelist/1.1"
+                            }
+                        }
+                    },
+                    "minItems": 1
+                },
+                "@id": {
+                    "type": "string",
+                    "description": "Identifier for the catalog record."
+                },
+                "schema:about": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "@id": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "@id"
+                    ]
+                }
+            },
+            "required": [
+                "@type",
+                "schema:additionalType",
+                "dcterms:conformsTo"
+            ]
+        }
+    },
+    "anyOf": [
+        {
+            "required": [
+                "schema:license"
+            ]
+        },
+        {
+            "required": [
+                "schema:conditionsOfAccess"
+            ]
+        }
+    ],
+    "required": [
+        "@id",
+        "skos:prefLabel",
+        "schema:identifier",
+        "schema:dateModified",
+        "skos:hasTopConcept"
+    ],
+    "$defs": {
+        "cdifConceptOrTermOrString": {
+            "$ref": "../../../cdifDataType/cdifConceptOrTermOrString/cdifConceptOrTermOrStringSchema.json"
+        },
+        "CdifCodelistConcept": {
+            "description": "A SKOS Concept constrained for CDIF codelist use. Must have a resolvable @id, skos:inScheme, skos:notation, and skos:prefLabel. Becasue JSON-LD is an open-world implementation, any other skos properties may be included.",
+            "type": "object",
+            "properties": {
+                "@id": {
+                    "type": "string",
+                    "description": "Globally unique, resolvable URI for this concept."
+                },
+                "skos:inScheme": {
+                    "description": "The concept scheme this concept belongs to. Required for CDIF codelist concepts.",
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "@id": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "@id"
+                        ]
+                    }
+                },
+                "skos:prefLabel": {
+                    "description": "Preferred lexical label for this concept. A single string,\na single language-tagged value, or an array of language-tagged values.\nEach language should appear at most once.\n\n**Uniqueness rule.** Each language should appear at most once in the\nset of prefLabel values. Two prefLabel values with duplicate `@language`\ntags are non-conformant. Consumers may reject or arbitrarily pick one.\n\n**Relationship to skos:altLabel.** Alternate labels (acronyms,\nspelling variants, obsolete names) go on `skos:altLabel`, NOT on\n`prefLabel`. A concept has exactly one preferred label per language.\n",
+                    "type": "string"
+                },
+                "skos:notation": {
+                    "description": "Classification code for this concept within a scheme.",
+                    "type": "string"
+                },
+                "skos:definition": {
+                    "description": "Formal definition of this concept. Optional for CDIF codelist concepts. A plain string.",
+                    "type": "string"
+                },
+                "skos:narrower": {
+                    "description": "Narrower (child) concepts. If present, each inline concept must also declare skos:broader pointing back to the parent concept. Both skos:narrower and skos:broader must be explicit in CDIF codelists.",
+                    "type": "array",
+                    "items": {
+                        "anyOf": [
+                            {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "@id": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "@id"
+                                ]
+                            },
+                            {
+                                "allOf": [
+                                    {
+                                        "$ref": "#/$defs/CdifCodelistConcept"
+                                    },
+                                    {
+                                        "required": [
+                                            "skos:broader"
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                },
+                "skos:broader": {
+                    "description": "Broader (parent) concepts. Required on any concept that appears as a skos:narrower value of another concept. CDIF requires both directions to be explicit for hierarchy traversal.",
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "@id": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "@id"
+                        ]
+                    }
+                }
+            },
+            "required": [
+                "@id",
+                "skos:inScheme",
+                "skos:prefLabel",
+                "skos:notation"
+            ]
+        }
+    }
+}

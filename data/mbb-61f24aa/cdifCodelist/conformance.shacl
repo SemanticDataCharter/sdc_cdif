@@ -1,0 +1,31 @@
+@prefix cdifd: <https://cdif.org/validation/0.1/shacl#> .
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix schema: <http://schema.org/> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+# Profile-conformance advisory. Kept out of rules.shacl deliberately: this file
+# is collected only when THIS block is the validation target, while rules.shacl
+# travels with the $ref graph. "Declare conformance to <this profile>" is true
+# of this profile alone, so it must not reach a bundle that merely reuses the
+# schema -- which is what happened via cdifEnumerationDomain -> cdifCodelist.
+
+# When a catalog record (schema:subjectOf) is present, its dcterms:conformsTo
+# must include the CDIF Codelist profile URI.
+cdifd:CDIFCodelistConformsToShape a sh:NodeShape ;
+    sh:property [ a sh:PropertyShape ;
+            sh:hasValue <https://w3id.org/cdif/codelist/1.1> ;
+            sh:minCount 1 ;
+            sh:message "A subjectOf catalog record on a CDIF codelist must include dcterms:conformsTo <https://w3id.org/cdif/codelist/1.1>." ;
+            sh:path dcterms:conformsTo ] ;
+    sh:target [ a sh:SPARQLTarget ;
+            sh:prefixes cdifd: ;
+            sh:select """
+                PREFIX schema: <http://schema.org/>
+                PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+                SELECT ?this WHERE {
+                    ?dataset schema:subjectOf ?this .
+                    ?dataset a skos:ConceptScheme .
+                }
+            """ ] .

@@ -1,0 +1,328 @@
+@prefix rdf:         <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:        <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh:          <http://www.w3.org/ns/shacl#> .
+@prefix xsd:         <http://www.w3.org/2001/XMLSchema#> .
+@prefix schema:      <http://schema.org/>.
+@prefix owl:        <http://www.w3.org/2002/07/owl#> .
+@prefix cdifd:      <https://cdif.org/validation/0.1/shacl#> .
+@prefix cdi:        <http://ddialliance.org/Specification/DDI-CDI/1.0/RDF/>.
+@prefix cdif:       <https://w3id.org/cdif/> .
+@prefix xas:        <https://w3id.org/cdif/xas/>.
+@base <https://www.ogc.org/rules/template/> .
+
+cdifd:CDIFInstanceVariableShape
+    a sh:NodeShape;
+    sh:target [
+	  a sh:SPARQLTarget ;
+	  sh:prefixes (
+         [ sh:prefix "schema" ; sh:namespace "http://schema.org/" ]
+         [ sh:prefix "cdi" ; sh:namespace "http://ddialliance.org/Specification/DDI-CDI/1.0/RDF/" ]
+         [ sh:prefix "ex" ; sh:namespace "https://example.org/" ]
+       );
+      sh:select  """
+      PREFIX schema: <http://schema.org/>
+      PREFIX cdi: <http://ddialliance.org/Specification/DDI-CDI/1.0/RDF/>
+      SELECT DISTINCT ?this
+        WHERE {
+          ?this a schema:PropertyValue .
+          # Exclude PropertyValue nodes used as identifiers / sameAs / propertyID
+          # values - these carry value/url/propertyID, not a measured-variable name.
+          FILTER NOT EXISTS { ?ip schema:identifier ?this . }
+          FILTER NOT EXISTS { ?ip schema:sameAs ?this . }
+          FILTER NOT EXISTS { ?ip schema:propertyID ?this . }
+          FILTER (
+            # Target if the node is a value of schema:variableMeasured, OR is
+            # explicitly typed cdi:InstanceVariable (the DataDescription marker),
+            # OR is a top-level standalone PropertyValue with no incoming refs.
+            EXISTS { ?s schema:variableMeasured ?this . }
+            ||
+            EXISTS { ?this a cdi:InstanceVariable . }
+            ||
+            NOT EXISTS { ?s ?p ?this . }
+          )
+        }""";
+	] ;
+	sh:property [
+        sh:path schema:propertyID;
+        sh:minCount 1 ;
+        sh:severity sh:Warning ;
+        sh:or (
+            [sh:nodeKind sh:IRI]
+            [sh:datatype xsd:string ;
+               sh:minLength 5 ]
+            [sh:class schema:DefinedTerm ;
+              sh:property [
+             	sh:path schema:identifier;
+             	sh:minCount 1 ;
+             	sh:or (
+             	    [sh:nodeKind sh:IRI]
+                     [sh:datatype xsd:string ;
+                             sh:minLength 5 ]
+             	    [ sh:and (
+             	      [sh:class schema:PropertyValue ]
+                 	  [sh:or (
+                             [sh:property [
+                                 sh:path schema:value ;
+                                 sh:minCount 1 ;
+                                 sh:datatype xsd:string ;
+                                 sh:message "a value for the identifier should be provided; can provide either full URI or identifier token part of URI if a url is provided."
+                             ] ]
+                             [sh:property [
+                                 sh:path schema:url ;
+                                 sh:minCount 1 ;
+                                 sh:datatype xsd:string ;
+                                 # sh:pattern "^[a-zA-Z][a-zA-Z0-9+.-]*:[^\\s]*$";
+                                 sh:pattern "^https?:\\/\\/[^\\s]+$" ;
+                                 sh:message "value must be a resolvable URL, but we aren't testing to see if the URL resolves..... Can't get xsd:anyURI to work with JSON Schema validation..."]
+                                 ]
+                             );
+                            ]  # or
+             	        )  # and
+             	        ]);
+             	    sh:message "a defined term should have an identifier that is a resolvable URI" ;
+             	    ];
+                  ] # end defined term rule
+        );
+        sh:message "a propertID must be a uri reference, a name string, or a schema:DefinedTerm";
+     ]; # end propertyID rule
+        	
+    sh:property cdifd:name2RequiredProperty;
+    sh:property cdifd:name2Property;
+    sh:property [
+       sh:path schema:description;
+       sh:datatype xsd:string ;
+        sh:minLength 10;
+        sh:severity sh:Info;
+        sh:minCount 1;
+        sh:message "a variableMeasured should have a text description explaining the variable"
+    ]
+  .
+  
+cdifd:name2RequiredProperty
+# Violation if schema:name is missing or an empty string.
+    a sh:PropertyShape ;
+    sh:path schema:name;
+	sh:minCount 1 ;
+    sh:datatype xsd:string ;
+	sh:minLength 1 ;
+    sh:message "cdi:InstanceVariable must have a non-empty schema:name."
+    .
+
+cdifd:name2Property
+# Warning (not Violation) if the variable name is fewer than 3 characters.
+# Short scientific channel names like 'I', 'I0', 'It' are legitimate; this is a soft hint.
+    a sh:PropertyShape ;
+    sh:path schema:name;
+    sh:datatype xsd:string ;
+	sh:minLength 3 ;
+	sh:severity sh:Warning ;
+    sh:message "variable name is <3 characters, is this name useful?"
+    .
+
+cdifd:QualifiesRequiredForAttributeShape
+    a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:prefixes (
+            [ sh:prefix "cdi" ; sh:namespace "http://ddialliance.org/Specification/DDI-CDI/1.0/RDF/" ]
+            [ sh:prefix "cdif" ; sh:namespace "https://w3id.org/cdif/" ]
+            [ sh:prefix "schema" ; sh:namespace "http://schema.org/" ]
+        ) ;
+        sh:select """
+            PREFIX cdi: <http://ddialliance.org/Specification/DDI-CDI/1.0/RDF/>
+            PREFIX cdif: <https://w3id.org/cdif/>
+            PREFIX schema: <http://schema.org/>
+            SELECT DISTINCT ?this
+            WHERE {
+                ?this a cdi:InstanceVariable .
+                ?this cdif:role "Attribute" .
+            }""" ;
+    ] ;
+    sh:property [
+        sh:path cdif:qualifies ;
+        sh:minCount 1 ;
+        sh:severity sh:Violation ;
+        sh:message "cdif:qualifies is required when cdif:role is Attribute." ;
+    ] ;
+    sh:property [
+        sh:path cdif:qualifies ;
+        sh:nodeKind sh:BlankNodeOrIRI ;
+        sh:severity sh:Violation ;
+        sh:message "cdif:qualifies must be an object with an @id referencing another instance variable defined for this dataset." ;
+    ]
+    .
+
+# Cross-reference coherence check for cdif:qualifies. This is a soft check:
+# whether the qualifies target and $this are both variableMeasured of the same
+# dataset can only be verified when the full dataset graph is present (it never
+# holds for a standalone InstanceVariable BB example), so it is a Warning.
+# NOTE: sh:severity is honoured on the *shape*, not on a sh:SPARQLConstraint
+# node, so this lives in its own NodeShape rather than as an sh:sparql on
+# QualifiesRequiredForAttributeShape (whose default severity is Violation).
+cdifd:QualifiesCoherenceShape
+    a sh:NodeShape ;
+    sh:severity sh:Warning ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:prefixes (
+            [ sh:prefix "cdi" ; sh:namespace "http://ddialliance.org/Specification/DDI-CDI/1.0/RDF/" ]
+            [ sh:prefix "cdif" ; sh:namespace "https://w3id.org/cdif/" ]
+            [ sh:prefix "schema" ; sh:namespace "http://schema.org/" ]
+        ) ;
+        sh:select """
+            PREFIX cdi: <http://ddialliance.org/Specification/DDI-CDI/1.0/RDF/>
+            PREFIX cdif: <https://w3id.org/cdif/>
+            PREFIX schema: <http://schema.org/>
+            SELECT DISTINCT ?this
+            WHERE {
+                ?this a cdi:InstanceVariable .
+                ?this cdif:role "Attribute" .
+            }""" ;
+    ] ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:prefixes (
+            [ sh:prefix "cdi" ; sh:namespace "http://ddialliance.org/Specification/DDI-CDI/1.0/RDF/" ]
+            [ sh:prefix "cdif" ; sh:namespace "https://w3id.org/cdif/" ]
+            [ sh:prefix "schema" ; sh:namespace "http://schema.org/" ]
+        ) ;
+        sh:select """
+            PREFIX cdi: <http://ddialliance.org/Specification/DDI-CDI/1.0/RDF/>
+            PREFIX cdif: <https://w3id.org/cdif/>
+            PREFIX schema: <http://schema.org/>
+            SELECT $this (cdif:qualifies AS ?path) (?target AS ?value)
+            WHERE {
+                $this cdif:qualifies ?target .
+                FILTER NOT EXISTS {
+                    ?dataset schema:variableMeasured ?target .
+                    ?dataset schema:variableMeasured $this .
+                }
+            }""" ;
+        sh:message "cdif:qualifies @id should reference the @id of another variableMeasured instance variable defined for the same dataset." ;
+    ]
+    .
+
+cdifd:QualifiesNotAllowedWithoutAttributeShape
+    a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:prefixes (
+            [ sh:prefix "cdi" ; sh:namespace "http://ddialliance.org/Specification/DDI-CDI/1.0/RDF/" ]
+            [ sh:prefix "cdif" ; sh:namespace "https://w3id.org/cdif/" ]
+            [ sh:prefix "schema" ; sh:namespace "http://schema.org/" ]
+        ) ;
+        sh:select """
+            PREFIX cdi: <http://ddialliance.org/Specification/DDI-CDI/1.0/RDF/>
+            PREFIX cdif: <https://w3id.org/cdif/>
+            PREFIX schema: <http://schema.org/>
+            SELECT DISTINCT ?this
+            WHERE {
+                ?this a cdi:InstanceVariable .
+                FILTER (
+                    NOT EXISTS { ?this cdif:role ?role . }
+                    ||
+                    EXISTS { ?this cdif:role ?role . FILTER (?role != "Attribute") }
+                )
+            }""" ;
+    ] ;
+    sh:property [
+        sh:path cdif:qualifies ;
+        sh:maxCount 0 ;
+        sh:severity sh:Warning ;
+        sh:message "cdif:qualifies should not be used when cdif:role is absent or not Attribute." ;
+    ]
+    .
+
+cdifd:CDIFxasInstanceVariableShape
+  a sh:NodeShape;
+  sh:targetClass cdi:InstanceVariable ;
+  sh:property [
+   sh:path cdif:physicalDataType;
+   sh:or (
+	  [sh:nodeKind sh:IRI ] 
+	  [sh:datatype xsd:string;  
+         sh:minLength 5 ]
+	  [sh:class schema:DefinedTerm ;
+ 	    sh:property [
+     	sh:path schema:identifier;
+     	sh:minCount 1 ;
+     	sh:or ( 
+     	 [sh:datatype xsd:string;  
+               sh:minLength 5 ]
+     	 [
+    	     sh:and (
+    	      [sh:class schema:PropertyValue ]
+        	  [sh:or (
+                    [sh:property [
+                        sh:path schema:value ;
+                       sh:minCount 1 ;
+                       sh:datatype xsd:string ;
+                       sh:message "a value for the identifier should be provided; can provide either full URI or identifier token part of URI if a url is provided."
+                   ] ]
+                   [sh:property [
+                       sh:path schema:url ;
+                       sh:minCount 1 ;
+                       sh:datatype xsd:string ;
+                       # sh:pattern "^[a-zA-Z][a-zA-Z0-9+.-]*:[^\\s]*$";
+                       sh:pattern "^https?:\\/\\/[^\\s]+$" ;
+                       sh:message "value must be a resolvable URL, but we aren't testing to see if the URL resolves..... Can't get xsd:anyURI to work with JSON Schema validation..."]
+                       ] 
+                   );
+           ]
+   	  )]);
+   	  sh:message "a defined term should have an identifier that is a resolvable URI" ; 
+		];
+	]
+   );
+   sh:minCount 1 ;
+   sh:severity sh:Warning ;
+   sh:message "for cdi InstanceVariable a physical data type should be provided." ;
+]  # END xasInstanceVariable shape
+.
+
+# InstanceVariable is a DDI-CDI RepresentedVariable subclass and MAY carry
+# RepresentedVariable-level properties inline -- UNLESS it defers to a separate
+# RepresentedVariable via cdif:isDefinedBy_RepresentedVariable, in which case
+# those properties are defined once there and must not be duplicated (a copy
+# could diverge). Only represented-variable-level *semantic* properties are
+# forbidden; instance-level identity/labels (name, displayLabel, descriptiveText,
+# identifier, simpleUnitOfMeasure) remain allowed on the InstanceVariable.
+cdifd:InstanceVariableRepresentedVariableExclusivityShape
+    a sh:NodeShape ;
+    sh:severity sh:Violation ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:prefixes (
+            [ sh:prefix "cdi" ; sh:namespace "http://ddialliance.org/Specification/DDI-CDI/1.0/RDF/" ]
+            [ sh:prefix "cdif" ; sh:namespace "https://w3id.org/cdif/" ]
+        ) ;
+        sh:select """
+            PREFIX cdi: <http://ddialliance.org/Specification/DDI-CDI/1.0/RDF/>
+            PREFIX cdif: <https://w3id.org/cdif/>
+            SELECT DISTINCT ?this
+            WHERE {
+                ?this a cdi:InstanceVariable .
+                ?this cdif:isDefinedBy_RepresentedVariable ?rv .
+                FILTER ( isIRI(?rv) || isBlank(?rv) )
+            }""" ;
+    ] ;
+    sh:property [ sh:path cdi:takesSubstantiveValuesFrom ; sh:maxCount 0 ;
+        sh:message "cdi:takesSubstantiveValuesFrom is a RepresentedVariable property; when cdif:isDefinedBy_RepresentedVariable is set it must be declared on the RepresentedVariable, not duplicated on the InstanceVariable." ] ;
+    sh:property [ sh:path cdi:takesSentinelValuesFrom ; sh:maxCount 0 ;
+        sh:message "cdi:takesSentinelValuesFrom is a RepresentedVariable property; when cdif:isDefinedBy_RepresentedVariable is set it must be declared on the RepresentedVariable, not duplicated on the InstanceVariable." ] ;
+    sh:property [ sh:path cdif:hasIntendedDataType ; sh:maxCount 0 ;
+        sh:message "cdif:hasIntendedDataType is a RepresentedVariable property; when cdif:isDefinedBy_RepresentedVariable is set it must not be duplicated on the InstanceVariable." ] ;
+    sh:property [ sh:path cdif:describedUnitOfMeasure ; sh:maxCount 0 ;
+        sh:message "cdif:describedUnitOfMeasure is a RepresentedVariable property; when cdif:isDefinedBy_RepresentedVariable is set it must not be duplicated on the InstanceVariable." ] ;
+    sh:property [ sh:path cdif:unitOfMeasureKind ; sh:maxCount 0 ;
+        sh:message "cdif:unitOfMeasureKind is a RepresentedVariable property; when cdif:isDefinedBy_RepresentedVariable is set it must not be duplicated on the InstanceVariable." ] ;
+    sh:property [ sh:path cdi:measures ; sh:maxCount 0 ;
+        sh:message "cdi:measures is a RepresentedVariable property; when cdif:isDefinedBy_RepresentedVariable is set it must not be duplicated on the InstanceVariable." ] ;
+    sh:property [ sh:path cdif:externalDefinition ; sh:maxCount 0 ;
+        sh:message "cdif:externalDefinition is a RepresentedVariable property; when cdif:isDefinedBy_RepresentedVariable is set it must not be duplicated on the InstanceVariable." ] ;
+    sh:property [ sh:path cdif:uses_Concept ; sh:maxCount 0 ;
+        sh:message "cdif:uses_Concept is a RepresentedVariable property; when cdif:isDefinedBy_RepresentedVariable is set it must not be duplicated on the InstanceVariable." ] ;
+    sh:property [ sh:path cdif:definition ; sh:maxCount 0 ;
+        sh:message "cdif:definition is a RepresentedVariable property; when cdif:isDefinedBy_RepresentedVariable is set it must not be duplicated on the InstanceVariable." ]
+    .
+
