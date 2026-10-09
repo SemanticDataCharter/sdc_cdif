@@ -1,0 +1,4 @@
+{
+  "_comment": "Declared input: what the publisher states because the package cannot know it. CDIF recommends a contact point with an e-mail on the publisher and maintainer. Override with --contact-name and --contact-email; an empty e-mail omits the contact point (it is recommended, not required).",
+  "contact": {"name": "Axius SDC, Inc. CDIF contact", "email": "contact@axius-sdc.com"}
+}

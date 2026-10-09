@@ -10,7 +10,7 @@ import json
 import sys
 from datetime import date
 
-from .cdif import write_cdif
+from .cdif import load_declared, write_cdif
 from .model import read_model
 from .package import DEFAULT_HOST, PackageError, fetch_package, load_package
 
@@ -26,13 +26,15 @@ def main(argv=None) -> int:
     w.add_argument("--host", default=DEFAULT_HOST)
     w.add_argument("--out", help="output file (default stdout)")
     w.add_argument("--date", help="the catalog record's publication date, YYYY-MM-DD (default today)")
+    w.add_argument("--contact-name", help="the publisher's contact point name (default: the package's declared.json)")
+    w.add_argument("--contact-email", help="the publisher's contact e-mail; empty omits the contact point")
     a = p.parse_args(argv)
     try:
         pkg = load_package(a.package, host=a.host) if a.package else fetch_package(a.ct_id, save_to=a.save_package, host=a.host)
     except PackageError as e:
         print(f"sdccdif: {e}", file=sys.stderr)
         return 2
-    doc = write_cdif(read_model(pkg), today=date.fromisoformat(a.date) if a.date else None)
+    doc = write_cdif(read_model(pkg), today=date.fromisoformat(a.date) if a.date else None, declared=load_declared(a.contact_name, a.contact_email))
     text = json.dumps(doc, indent=1, ensure_ascii=False)
     if a.out:
         with open(a.out, "w", encoding="utf-8") as f:

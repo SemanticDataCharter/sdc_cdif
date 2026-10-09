@@ -48,7 +48,14 @@
      "schema:Organization"
     ],
     "schema:name": "Axius SDC, Inc.",
-    "schema:url": "https://axius-sdc.com"
+    "schema:url": "https://axius-sdc.com",
+    "schema:contactPoint": {
+     "@type": [
+      "schema:ContactPoint"
+     ],
+     "schema:name": "Axius SDC, Inc. CDIF contact",
+     "schema:email": "contact@axius-sdc.com"
+    }
    },
    "schema:publishingPrinciples": {
     "@id": "https://semanticdatacharter.com/permanence.html",
@@ -7711,7 +7718,14 @@
       "schema:Organization"
      ],
      "schema:name": "Axius SDC, Inc.",
-     "schema:url": "https://axius-sdc.com"
+     "schema:url": "https://axius-sdc.com",
+     "schema:contactPoint": {
+      "@type": [
+       "schema:ContactPoint"
+      ],
+      "schema:name": "Axius SDC, Inc. CDIF contact",
+      "schema:email": "contact@axius-sdc.com"
+     }
     },
     "dcterms:conformsTo": [
      {
