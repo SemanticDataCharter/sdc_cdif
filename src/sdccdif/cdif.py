@@ -13,7 +13,7 @@ from datetime import date
 from importlib import resources
 from urllib.parse import quote
 
-from .model import CLOSE, EXACT, HAS_UNIT, IDENTIFIER, NUMERIC_TYPES, QUANTIFIED_TYPES, SOURCE, Code, Leaf, Model, enumeration_iri
+from sdcreader import CLOSE, EXACT, HAS_UNIT, IDENTIFIER, NUMERIC_TYPES, QUANTIFIED_TYPES, SOURCE, Code, Leaf, Model, enumeration_iri
 
 CONTEXT = {
     "schema": "http://schema.org/",

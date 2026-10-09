@@ -118,10 +118,11 @@ behave, so the next implementer spends the day on their own document rather than
 
 ## Layout
 
-- `src/sdccdif/`: `package.py` (a model's package, from a directory or the public catalog), `model.py` (the record
-  tree, and the definitions and codes behind each enumerated value, read from the schema), `cdif.py` (the JSON-LD),
-  `cli.py`, `data/sdc4-exceptional-values.json` (the sixteen exceptional values, extracted from the SDC4 reference
-  model schema).
+- The model's package is read with [`sdcreader`](https://github.com/SemanticDataCharter/sdcreader) (`load_package`,
+  `fetch_package`, `read_model`): the record tree, its leaves, the enumerated values with their codes, the model's
+  Dublin Core with SDCStudio's defaults as unset. The package format is documented there, once.
+- `src/sdccdif/`: `cdif.py` (the JSON-LD), `cli.py`, `data/sdc4-exceptional-values.json` (the sixteen exceptional values,
+  extracted from the SDC4 reference model schema).
 - `data/cdif-129085c/`: CDIF's context, frame, JSON Schemas, SHACL, conformance map and validators.
   `data/mbb-61f24aa/`: the cdifCodelist building block and the three per-class rules the detector gates on.
 - `samples/nhanes-participant/`: the model's package as fetched and the document written from it.

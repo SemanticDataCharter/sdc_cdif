@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sdccdif"
-version = "0.1.0"
+version = "4.0.0"
 description = "Describe a published Semantic Data Charter model's governed data records in CDIF JSON-LD (Core, Discovery, Data Description, Codelist)."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -13,12 +13,14 @@ authors = [{ name = "Axius SDC, Inc." }]
 keywords = ["cdif", "codata", "json-ld", "ddi-cdi", "schema.org", "sdc", "fair"]
 
 dependencies = [
+    # the model's package, read once for every projection
+    "sdcreader>=4.0,<5",
     "lxml>=5.0",
 ]
 
 [project.optional-dependencies]
 # Fetching a package from SDCStudio's public catalog needs HTTP; a package already on disk does not.
-fetch = ["requests>=2.31"]
+fetch = ["sdcreader[fetch]>=4.0,<5"]
 # The tests run CDIF's own validators (framing, JSON Schema, SHACL) from the pinned snapshot in ../data.
 dev = ["pytest>=8.0", "requests>=2.31", "pyld>=2.0", "jsonschema>=4.20", "pyshacl>=0.26", "rdflib>=7.0"]
 
