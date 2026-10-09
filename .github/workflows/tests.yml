@@ -1,5 +1,9 @@
 name: tests
-on: [push, pull_request]
+# Runs on every pull request (dev to main) and on main itself; a dev push is covered by the open PR's check.
+on:
+  pull_request:
+  push:
+    branches: [main]
 jobs:
   pytest:
     runs-on: ubuntu-latest
