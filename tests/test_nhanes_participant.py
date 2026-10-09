@@ -150,6 +150,32 @@ def test_the_contact_point_is_declared_input(doc, model):
     assert "schema:contactPoint" not in silent["@graph"][0]["schema:publisher"]
 
 
+def test_the_models_dublin_core_is_read_from_the_schema_header_with_defaults_as_unset(model, doc, cv):
+    # NHANES: subject and publisher blank, coverage "Universal" and relation "None" are SDCStudio's defaults, so nothing is published for them
+    assert model.header["coverage"] == "Universal" and model.dc("coverage") is None and model.dc("publisher") is None and model.subjects == []
+    ds = doc["@graph"][0]
+    assert "schema:spatialCoverage" not in ds and "schema:contributor" not in ds and ds["schema:publisher"]["schema:name"] == "Axius SDC, Inc."
+    # a model whose modeler filled the header: publisher, subjects, contributors and coverage are published, and still pass CDIF's SHACL
+    import copy
+    from sdccdif.cdif import write_cdif as w
+    authored = copy.copy(model)
+    authored.header = dict(model.header, publisher="National Center for Health Statistics", subject="blood pressure; demographics; NHANES",
+                           coverage="United States, civilian noninstitutionalized population", contributor=["A. Modeler"],
+                           rights="Public domain in the United States https://creativecommons.org/publicdomain/zero/1.0/ except where noted")
+    d2 = w(authored, today=DAY)
+    ds2 = d2["@graph"][0]
+    assert ds2["schema:publisher"]["schema:name"] == "National Center for Health Statistics" and "schema:contactPoint" in ds2["schema:publisher"]
+    assert ds2["schema:keywords"][:4] == ["FAIR Data Demo", "blood pressure", "demographics", "NHANES"]
+    assert ds2["schema:contributor"] == [{"@type": ["schema:Person"], "schema:name": "A. Modeler"}]
+    assert ds2["schema:spatialCoverage"] == [{"@type": ["schema:Place"], "schema:name": "United States, civilian noninstitutionalized population"}]
+    assert ds2["schema:license"] == [{"@id": "https://creativecommons.org/publicdomain/zero/1.0/"}]
+    assert ds2["schema:conditionsOfAccess"] == ["Public domain in the United States  except where noted".replace("  ", " ")] or "except where noted" in ds2["schema:conditionsOfAccess"][0]
+    frame = json.loads((VALIDATION / "CDIF-frame-2026.jsonld").read_text())
+    resolver = cv.build_resolver("local", schema_map=str(VALIDATION / "conformance-schema-map.json"))
+    result = cv.run_conformance(d2, resolver, frame=frame)
+    assert result["total_violations"] == 0, [p["shacl"]["errors"][:3] for p in result["profiles"]]
+
+
 def test_the_writer_refuses_a_model_without_its_package(tmp_path):
     from sdccdif.package import PackageError
     (tmp_path / "dm-abc.xsd").write_bytes(b"<xsd:schema/>")

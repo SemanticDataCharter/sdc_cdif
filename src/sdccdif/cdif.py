@@ -43,8 +43,10 @@ def load_declared(contact_name: str | None = None, contact_email: str | None = N
     return d
 
 
-def _publisher(declared: dict | None) -> dict:
-    p = dict(PUBLISHER)
+def _publisher(declared: dict | None, model: Model | None = None) -> dict:
+    """The model's dc:publisher when the modeler wrote one, otherwise the package's publisher; the declared contact on either."""
+    name = model.dc("publisher") if model else None
+    p = {"@type": ["schema:Organization"], "schema:name": name} if name else dict(PUBLISHER)
     contact = (declared or {}).get("contact") or {}
     email = (contact.get("email") or "").strip()
     if email:
@@ -65,11 +67,11 @@ UNIT_IDENTIFIER_KEYS = ("sequence-number", "-identifier", "-id", "-number")
 def write_cdif(model: Model, today: date | None = None, declared: dict | None = None) -> dict:
     today = today or date.today()
     declared = load_declared() if declared is None else declared
-    publisher = _publisher(declared)
+    publisher = _publisher(declared, model)
     pkg = model.package
     ds_id = pkg.catalog_url
-    date_modified = (model.metadata.get("dc:date") or "")[:10] or today.isoformat()
-    license_iri = _license(model.metadata.get("dc:rights") or "")
+    date_modified = (model.dc("date") or "")[:10] or today.isoformat()
+    license_iri = model.rights_url
     graph: list[dict] = []
     schemes: dict[str, dict] = {}
     sentinel_id = f"{ds_id}#sentinel-values"
@@ -132,10 +134,18 @@ def write_cdif(model: Model, today: date | None = None, declared: dict | None = 
     if license_iri:
         dataset["schema:license"] = [{"@id": license_iri}]
     else:
-        dataset["schema:conditionsOfAccess"] = [model.metadata.get("dc:rights") or "Not stated in the package."]
-    creator = model.metadata.get("dc:creator")
+        dataset["schema:conditionsOfAccess"] = [model.dc("rights") or "Not stated in the package."]
+    if model.rights_statement and license_iri:
+        dataset["schema:conditionsOfAccess"] = [model.rights_statement]
+    creator = model.dc("creator")
     if creator:
         dataset["schema:creator"] = [{"@type": ["schema:Person"], "schema:name": creator}]
+    # the rest of the model's Dublin Core, when the modeler wrote it (SDCStudio's defaults read as unset)
+    if model.contributors:
+        dataset["schema:contributor"] = [{"@type": ["schema:Person"], "schema:name": c} for c in model.contributors]
+    coverage = model.dc("coverage")
+    if coverage:
+        dataset["schema:spatialCoverage"] = [{"@type": ["schema:Place"], "schema:name": coverage}]
 
     graph.append(dataset)
     graph.append({
@@ -296,7 +306,7 @@ def _dataset_description(model: Model, date_modified: str) -> str:
 
 
 def _keywords(model: Model) -> list[str]:
-    words = ["Semantic Data Charter", "SDC4", "governed data record"]
+    words = model.subjects + ["Semantic Data Charter", "SDC4", "governed data record"]
     project = model.package.catalog.get("project_name")
     if project:
         words.insert(0, project)
@@ -322,6 +332,3 @@ def _units(model: Model, c) -> list[str]:
     return list(uc.constraints.get("enumeration") or [])
 
 
-def _license(rights: str) -> str:
-    m = re.search(r"https?://\S+", rights)
-    return m.group(0).rstrip(".,;") if m else ""

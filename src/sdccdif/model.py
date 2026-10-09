@@ -16,6 +16,7 @@ from lxml import etree
 from .package import ModelPackage
 
 XSD_NS = "http://www.w3.org/2001/XMLSchema"
+DC_NS = "http://purl.org/dc/elements/1.1/"
 RDFS_NS = "http://www.w3.org/2000/01/rdf-schema#"
 RDF_NS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
 SDC4 = "https://semanticdatacharter.com/ns/sdc4/"
@@ -74,12 +75,54 @@ class Leaf:
         return "/".join(_slug(c.label) for c in self.path[1:] + [self.component])
 
 
+#: SDCStudio's field defaults, present in every schema header whether or not the modeler wrote anything; treated as
+#: unset so a writer never publishes "Universal" as a geographic coverage or "None" as a relation.
+DC_DEFAULTS = {"coverage": {"Universal"}, "relation": {"None"}, "type": {"SDC Data Model (DM)"}}
+
+
 @dataclass
 class Model:
     package: ModelPackage
     title: str
     description: str
-    metadata: dict
+    metadata: dict          # the JSON-LD package's metadata (dc:title, dc:creator, dc:rights, dc:date, ...)
+    header: dict            # the schema header's Dublin Core, complete: dc:subject, dc:coverage, dc:publisher, dc:contributor, ...
+
+    def dc(self, name: str) -> str | None:
+        """A Dublin Core value the modeler wrote: the schema header first, the JSON-LD second, defaults and blanks as None."""
+        v = self.header.get(name)
+        if v is None:
+            v = self.metadata.get(f"dc:{name}")
+        if isinstance(v, list):
+            v = v[0] if v else None
+        v = (v or "").strip() if isinstance(v, str) else v
+        if not v or v in DC_DEFAULTS.get(name, set()):
+            return None
+        return v
+
+    @property
+    def contributors(self) -> list[str]:
+        v = self.header.get("contributor")
+        if v is None:
+            v = self.metadata.get("dc:contributor") or []
+        return [c.strip() for c in (v if isinstance(v, list) else [v]) if c and c.strip()]
+
+    @property
+    def subjects(self) -> list[str]:
+        """dc:subject as SDCStudio asks for it: a semicolon-separated list of keywords."""
+        v = self.dc("subject") or ""
+        return [w.strip() for w in v.split(";") if w.strip()]
+
+    @property
+    def rights_url(self) -> str:
+        m = re.search(r"https?://\S+", self.dc("rights") or "")
+        return m.group(0).rstrip(".,;") if m else ""
+
+    @property
+    def rights_statement(self) -> str:
+        """The rights text with its URL removed; empty when nothing but a label is left."""
+        text = re.sub(r"https?://\S+", "", self.dc("rights") or "").strip(" ,;:")
+        return text if len(text) > 12 else ""
     root: Component
     components: dict[str, Component]
     leaves: list[Leaf]
@@ -114,7 +157,28 @@ def read_model(pkg: ModelPackage) -> Model:
 
     walk(root, [root])
     return Model(package=pkg, title=d.get("label") or d["metadata"].get("dc:title", ""), description=d.get("description") or "",
-                 metadata=d.get("metadata") or {}, root=root, components=comps, leaves=leaves, codes=_codes(pkg.xsd_bytes))
+                 metadata=d.get("metadata") or {}, header=read_header(pkg.xsd_bytes), root=root, components=comps, leaves=leaves,
+                 codes=_codes(pkg.xsd_bytes))
+
+
+def read_header(xsd_bytes: bytes) -> dict:
+    """The Dublin Core the schema header carries for the model (the first rdf:Description with dc: children): every
+    field the modeler could fill, blanks included, contributors as a list."""
+    tree = etree.fromstring(xsd_bytes)
+    out: dict = {}
+    for desc in tree.iter(f"{{{RDF_NS}}}Description"):
+        dc = [el for el in desc if isinstance(el.tag, str) and el.tag.startswith(f"{{{DC_NS}}}")]
+        if not dc:
+            continue
+        for el in dc:
+            name = el.tag.split("}", 1)[1]
+            text = " ".join((el.text or "").split())
+            if name == "contributor":
+                out.setdefault("contributor", []).append(text)
+            else:
+                out[name] = text
+        break
+    return out
 
 
 def _root(comps: dict[str, Component]) -> Component:
