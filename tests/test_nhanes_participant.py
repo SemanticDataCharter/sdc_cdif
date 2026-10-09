@@ -177,7 +177,7 @@ def test_the_models_dublin_core_is_read_from_the_schema_header_with_defaults_as_
 
 
 def test_the_writer_refuses_a_model_without_its_package(tmp_path):
-    from sdccdif.package import PackageError
+    from sdcreader import PackageError
     (tmp_path / "dm-abc.xsd").write_bytes(b"<xsd:schema/>")
     with pytest.raises(PackageError, match="missing"):
         load_package(tmp_path)

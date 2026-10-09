@@ -12,3 +12,4 @@ are copied into data/ under their own licences, named by commit, so a passing do
 
 The sixteen exceptional values in src/sdccdif/data/sdc4-exceptional-values.json are extracted from the SDC4 reference
 model schema (https://semanticdatacharter.com/ns/sdc4/sdc4.xsd), Semantic Data Charter.
+The model's package is read with sdcreader (https://github.com/SemanticDataCharter/sdcreader), Apache-2.0.

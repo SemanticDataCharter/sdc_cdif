@@ -11,8 +11,8 @@ import sys
 from datetime import date
 
 from .cdif import load_declared, write_cdif
-from .model import read_model
-from .package import DEFAULT_HOST, PackageError, fetch_package, load_package
+from sdcreader import read_model
+from sdcreader import DEFAULT_HOST, PackageError, fetch_package, load_package
 
 
 def main(argv=None) -> int:
