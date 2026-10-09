@@ -1,0 +1,174 @@
+@prefix rdf:         <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:        <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh:          <http://www.w3.org/ns/shacl#> .
+@prefix xsd:         <http://www.w3.org/2001/XMLSchema#> .
+@prefix schema:      <http://schema.org/>.
+@prefix prov:        <http://www.w3.org/ns/prov#> .
+@prefix cdifd: <https://cdif.org/validation/0.1/shacl#> .
+@base <https://www.ogc.org/rules/template/> .
+
+
+# ------------------------------------------------------------
+# Activity shape --targets prov:Activity nodes that are
+# standalone or referenced via prov:wasGeneratedBy
+# (same SPARQL targeting pattern as generatedBy/rules.shacl)
+# ------------------------------------------------------------
+
+cdifd:cdifProvActivityShape
+	a sh:NodeShape ;
+	sh:target [
+	  a sh:SPARQLTarget ;
+	  sh:select """
+	  PREFIX schema: <http://schema.org/>
+	  PREFIX prov: <http://www.w3.org/ns/prov#>
+	  SELECT DISTINCT ?this
+	    WHERE {
+	    ?this a prov:Activity .
+	    {
+	      FILTER NOT EXISTS { ?s ?p ?this . }
+	    }
+	    UNION
+	    {
+	      ?s prov:wasGeneratedBy ?this .
+	    }
+	  }"""
+	] ;
+
+	# -- REQUIRED (Violation) --
+
+	sh:property [
+		sh:path prov:used ;
+		sh:or ( [sh:nodeKind sh:IRI]
+			[sh:nodeKind sh:BlankNode]
+			[sh:datatype xsd:string ;
+			  sh:minLength 3 ;] ) ;
+		sh:minCount 1 ;
+		sh:severity sh:Violation ;
+		sh:message "A cdifProvActivity must specify at least one resource that was used (prov:used)" ;
+	] ;
+
+	# schema:name check removed — provActivity/rules.shacl is the
+	# authoritative source (cdifd:provActivityShape) to avoid
+	# duplicate violations on dual-typed Action/Activity nodes.
+
+	# -- RECOMMENDED (Warning) --
+
+	sh:property [
+		sh:path schema:description ;
+		sh:datatype xsd:string ;
+		sh:severity sh:Warning ;
+		sh:message "A cdifProvActivity should have a schema:description" ;
+	] ;
+
+	sh:property [
+		sh:path schema:agent ;
+		sh:or (
+			[sh:class schema:Person ;]
+			[sh:class schema:Organization ;]
+			[sh:nodeKind sh:IRI ;]
+		) ;
+		sh:severity sh:Warning ;
+		sh:message "A cdifProvActivity should identify a responsible agent (schema:Person, schema:Organization, or IRI reference)" ;
+	] ;
+
+	sh:property [
+		sh:path schema:startTime ;
+		sh:datatype xsd:string ;
+		sh:severity sh:Warning ;
+		sh:message "A cdifProvActivity should specify a schema:startTime (ISO8601 date-time)" ;
+	] ;
+
+	sh:property [
+		sh:path schema:endTime ;
+		sh:datatype xsd:string ;
+		sh:severity sh:Warning ;
+		sh:message "A cdifProvActivity should specify a schema:endTime (ISO8601 date-time)" ;
+	] ;
+
+	# -- INFORMATIONAL (Info) --
+
+	sh:property [
+		sh:path schema:instrument ;
+		sh:or (
+			[sh:nodeKind sh:IRI ;]
+			[sh:datatype xsd:string ;]
+			[sh:class schema:DefinedTerm ;]
+			[sh:class schema:CreativeWork ;]
+		) ;
+		sh:severity sh:Info ;
+		sh:message "Instruments should be a DefinedTerm, CreativeWork, IRI, or descriptive string" ;
+	] ;
+
+	sh:property [
+		sh:path schema:actionStatus ;
+		sh:in (
+			"schema:CompletedActionStatus"
+			"schema:ActiveActionStatus"
+			"schema:PotentialActionStatus"
+			"schema:FailedActionStatus"
+		) ;
+		sh:severity sh:Info ;
+		sh:message "schema:actionStatus should be one of: schema:CompletedActionStatus, schema:ActiveActionStatus, schema:PotentialActionStatus, schema:FailedActionStatus" ;
+	] ;
+
+	sh:property [
+		sh:path schema:actionProcess ;
+		sh:or (
+			[sh:class schema:HowTo ;]
+			[sh:nodeKind sh:IRI ;]
+			[sh:datatype xsd:string ;]
+		) ;
+		sh:severity sh:Info ;
+		sh:message "schema:actionProcess should be a HowTo, IRI reference, or descriptive string" ;
+	] ;
+	.
+
+
+# ------------------------------------------------------------
+# HowTo shape --validates methodology nodes
+# ------------------------------------------------------------
+
+cdifd:cdifProvHowToShape
+	a sh:NodeShape ;
+	sh:targetClass schema:HowTo ;
+
+	sh:property [
+		sh:path schema:name ;
+		sh:minCount 1 ;
+		sh:datatype xsd:string ;
+		sh:severity sh:Violation ;
+		sh:message "A HowTo methodology must have a schema:name" ;
+	] ;
+
+	sh:property [
+		sh:path schema:step ;
+		sh:class schema:HowToStep ;
+		sh:severity sh:Warning ;
+		sh:message "HowTo steps should be of type schema:HowToStep" ;
+	] ;
+	.
+
+
+# ------------------------------------------------------------
+# HowToStep shape --validates individual methodology steps
+# ------------------------------------------------------------
+
+cdifd:cdifProvHowToStepShape
+	a sh:NodeShape ;
+	sh:targetClass schema:HowToStep ;
+
+	sh:property [
+		sh:path schema:name ;
+		sh:minCount 1 ;
+		sh:datatype xsd:string ;
+		sh:severity sh:Violation ;
+		sh:message "A HowToStep must have a schema:name" ;
+	] ;
+
+	sh:property [
+		sh:path schema:position ;
+		sh:datatype xsd:integer ;
+		sh:severity sh:Warning ;
+		sh:message "A HowToStep should specify a schema:position (integer)" ;
+	] ;
+	.

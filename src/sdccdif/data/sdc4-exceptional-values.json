@@ -1,0 +1,104 @@
+{
+ "source": "https://semanticdatacharter.com/ns/sdc4/sdc4.xsd",
+ "sha256": "0b828e51ef89142427e8659f498ccd409a77e452576d336a65bdb5e0cc495308",
+ "fetched": "2026-10-08",
+ "base": "https://semanticdatacharter.com/ns/sdc4/sdc4.xsd#",
+ "values": [
+  {
+   "code": "NI",
+   "type": "NIType",
+   "name": "No Information",
+   "definition": "The value is exceptional (missing, omitted, incomplete, improper). No information as to the reason for being an exceptional value is provided. This is the most general exceptional value. It is also the default exceptional value."
+  },
+  {
+   "code": "MSK",
+   "type": "MSKType",
+   "name": "Masked",
+   "definition": "There is information on this item available but it has not been provided by the sender due to security, privacy or other reasons. There may be an alternate mechanism for gaining access to this information. Warning: Using this exceptional value does provide information that may be a breach of confidentiality, even though no detail data is provided. Its primary purpose is for those circumstances where it is necessary to inform the receiver that the information does exist without providing any detail."
+  },
+  {
+   "code": "INV",
+   "type": "INVType",
+   "name": "Invalid",
+   "definition": "The value as represented in the instance is not a member of the set of permitted data values in the constrained value domain of a variable."
+  },
+  {
+   "code": "DER",
+   "type": "DERType",
+   "name": "Derived",
+   "definition": "An actual value may exist, but it must be derived from the provided information; usually an expression is provided directly."
+  },
+  {
+   "code": "UNC",
+   "type": "UNCType",
+   "name": "Unencoded",
+   "definition": "No attempt has been made to encode the information correctly but the raw source information is represented, usually in free text."
+  },
+  {
+   "code": "OTH",
+   "type": "OTHType",
+   "name": "Other",
+   "definition": ""
+  },
+  {
+   "code": "NINF",
+   "type": "NINFType",
+   "name": "Negative Infinity",
+   "definition": "Negative infinity of numbers"
+  },
+  {
+   "code": "PINF",
+   "type": "PINFType",
+   "name": "Positive Infinity",
+   "definition": "Positive infinity of numbers"
+  },
+  {
+   "code": "UNK",
+   "type": "UNKType",
+   "name": "Unknown",
+   "definition": "A proper value is applicable, but not known."
+  },
+  {
+   "code": "ASKR",
+   "type": "ASKRType",
+   "name": "Asked and Refused",
+   "definition": "Information was sought but refused to be provided (e.g., patient was asked but refused to answer)."
+  },
+  {
+   "code": "NASK",
+   "type": "NASKType",
+   "name": "Not Asked",
+   "definition": "This information has not been sought (e.g., patient was not asked)"
+  },
+  {
+   "code": "QS",
+   "type": "QSType",
+   "name": "Sufficient Quantity",
+   "definition": "The specific quantity is not known, but is known to non-zero and it is not specified because it makes up the bulk of the material; Add 10mg of ingredient X, 50mg of ingredient Y and sufficient quantity of water to 100mL."
+  },
+  {
+   "code": "TRC",
+   "type": "TRCType",
+   "name": "Trace",
+   "definition": "The content is greater or less than zero but too small to be quantified."
+  },
+  {
+   "code": "ASKU",
+   "type": "ASKUType",
+   "name": "Asked but Unknown",
+   "definition": "Information was sought but not found (e.g., patient was asked but did not know)"
+  },
+  {
+   "code": "NAV",
+   "type": "NAVType",
+   "name": "Not Available",
+   "definition": ""
+  },
+  {
+   "code": "NA",
+   "type": "NAType",
+   "name": "Not Applicable",
+   "definition": "No proper value is applicable in this context e.g.,the number of cigarettes smoked per day by a non-smoker subject."
+  }
+ ]
+}

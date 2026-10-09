@@ -1,0 +1,77 @@
+@prefix rdf:    <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:   <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh:     <http://www.w3.org/ns/shacl#> .
+@prefix xsd:    <http://www.w3.org/2001/XMLSchema#> .
+@prefix cdi:    <http://ddialliance.org/Specification/DDI-CDI/1.0/RDF/> .
+@prefix cdif:   <https://w3id.org/cdif/> .
+@prefix cdifd:  <https://cdif.org/validation/0.1/shacl#> .
+@base <https://www.ogc.org/rules/template/> .
+
+# ------------------------------------------------------------
+# cdi:VariableDescriptorComponent
+#
+# Carries an inline cdi:DescriptorVariable (cdif:isDefinedBy_DescriptorVariable,
+# required) and an optional cdi:refersTo object reference to the
+# VariableValueComponent whose values the descriptor codes identify.
+#
+# JSON Schema can require cdif:isDefinedBy_DescriptorVariable and can type
+# cdi:refersTo as an @id object reference, but it cannot constrain *what* the
+# reference points at. That constraint is enforced here:
+#   - cdi:refersTo MUST resolve to a cdi:VariableValueComponent.
+# The reference is expected to point at a VariableValueComponent in the same
+# data structure; cdi:refersTo is optional because a data structure normally
+# contains exactly one VariableValueComponent, so the target is unambiguous
+# when omitted.
+# ------------------------------------------------------------
+
+cdifd:cdifVariableDescriptorComponentShape
+    a sh:NodeShape ;
+    sh:targetClass cdi:VariableDescriptorComponent ;
+
+    sh:property [
+        sh:path cdif:isDefinedBy_DescriptorVariable ;
+        sh:minCount 1 ;
+        sh:severity sh:Violation ;
+        sh:message "A cdi:VariableDescriptorComponent must carry an inline cdi:DescriptorVariable via cdif:isDefinedBy_DescriptorVariable." ;
+    ] ;
+
+    sh:property [
+        sh:path cdi:refersTo ;
+        sh:maxCount 1 ;
+        sh:class cdi:VariableValueComponent ;
+        sh:severity sh:Violation ;
+        sh:message "cdi:refersTo on a cdi:VariableDescriptorComponent must be an object reference to a cdi:VariableValueComponent in the same data structure." ;
+    ] ;
+    .
+
+# ------------------------------------------------------------
+# cdi:IdentifierComponent / cdi:DimensionComponent
+#
+# The JSON Schema makes cdif:isDefinedBy_Variable a
+# required property on these two component subclasses (it is
+# optional on the others). These shapes mirror that.
+# ------------------------------------------------------------
+
+cdifd:cdifIdentifierComponentShape
+    a sh:NodeShape ;
+    sh:targetClass cdi:IdentifierComponent ;
+
+    sh:property [
+        sh:path cdif:isDefinedBy_Variable ;
+        sh:minCount 1 ;
+        sh:severity sh:Violation ;
+        sh:message "A cdi:IdentifierComponent must carry cdif:isDefinedBy_Variable (the RepresentedVariable or InstanceVariable it is a role of)." ;
+    ] ;
+    .
+
+cdifd:cdifDimensionComponentShape
+    a sh:NodeShape ;
+    sh:targetClass cdi:DimensionComponent ;
+
+    sh:property [
+        sh:path cdif:isDefinedBy_Variable ;
+        sh:minCount 1 ;
+        sh:severity sh:Violation ;
+        sh:message "A cdi:DimensionComponent must carry cdif:isDefinedBy_Variable (the RepresentedVariable or InstanceVariable it is a role of)." ;
+    ] ;
+    .
