@@ -29,6 +29,27 @@ CONTEXT = {
 }
 PROFILES = ["https://w3id.org/cdif/core/1.1", "https://w3id.org/cdif/discovery/1.1", "https://w3id.org/cdif/data_description/1.1"]
 PUBLISHER = {"@id": "https://axius-sdc.com", "@type": ["schema:Organization"], "schema:name": "Axius SDC, Inc.", "schema:url": "https://axius-sdc.com"}
+
+
+def load_declared(contact_name: str | None = None, contact_email: str | None = None) -> dict:
+    """The declared input: the package's default, with command-line overrides. An empty e-mail means no contact point."""
+    d = json.loads(resources.files("sdccdif").joinpath("data/declared.json").read_text(encoding="utf-8"))
+    contact = dict(d.get("contact") or {})
+    if contact_name is not None:
+        contact["name"] = contact_name
+    if contact_email is not None:
+        contact["email"] = contact_email
+    d["contact"] = contact
+    return d
+
+
+def _publisher(declared: dict | None) -> dict:
+    p = dict(PUBLISHER)
+    contact = (declared or {}).get("contact") or {}
+    email = (contact.get("email") or "").strip()
+    if email:
+        p["schema:contactPoint"] = {"@type": ["schema:ContactPoint"], "schema:name": contact.get("name") or p["schema:name"], "schema:email": email}
+    return p
 PERMANENCE = {
     "@id": "https://semanticdatacharter.com/permanence.html",
     "@type": ["schema:CreativeWork"],
@@ -41,8 +62,10 @@ PROVGOV_SLOT = "https://axius-sdc.com/library/provgov/"
 UNIT_IDENTIFIER_KEYS = ("sequence-number", "-identifier", "-id", "-number")
 
 
-def write_cdif(model: Model, today: date | None = None) -> dict:
+def write_cdif(model: Model, today: date | None = None, declared: dict | None = None) -> dict:
     today = today or date.today()
+    declared = load_declared() if declared is None else declared
+    publisher = _publisher(declared)
     pkg = model.package
     ds_id = pkg.catalog_url
     date_modified = (model.metadata.get("dc:date") or "")[:10] or today.isoformat()
@@ -89,7 +112,7 @@ def write_cdif(model: Model, today: date | None = None) -> dict:
         "schema:datePublished": date_modified,
         "schema:inLanguage": model.metadata.get("dc:language") or "en-US",
         "schema:keywords": _keywords(model),
-        "schema:publisher": PUBLISHER,
+        "schema:publisher": publisher,
         "schema:publishingPrinciples": PERMANENCE,
         "dcterms:conformsTo": [_schema_citation(model)],
         "schema:variableMeasured": variables,
@@ -100,7 +123,7 @@ def write_cdif(model: Model, today: date | None = None) -> dict:
             "schema:name": f"CDIF description of {model.title}",
             "schema:about": {"@id": ds_id},
             "schema:sdDatePublished": today.isoformat(),
-            "schema:maintainer": PUBLISHER,
+            "schema:maintainer": publisher,
             "dcterms:conformsTo": [{"@id": p} for p in PROFILES],
         },
     }

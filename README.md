@@ -32,7 +32,7 @@ What the document contains, for the NHANES Participant model:
 
 | | |
 |---|---|
-| `schema:Dataset` | the collection of records conforming to the model: name, description, identifier, URL, dates, language, licence from the package's rights, creator, publisher, keywords |
+| `schema:Dataset` | the collection of records conforming to the model: name, description, identifier, URL, dates, language, licence from the package's rights, creator, publisher with a contact point, keywords |
 | `schema:publishingPrinciples` | the permanence page: a published model is immutable, a change is a new model naming the one it revised |
 | `dcterms:conformsTo` | the schema, by its published URL with `?sha256=` and an `spdx:Checksum` of the bytes |
 | `schema:variableMeasured` | 153 `cdi:InstanceVariable`s, one per leaf of the record in document order, with the path, the library slot as `schema:propertyID`, the `skos:exactMatch` concepts as `cdif:uses`, the XSD datatype, unit, range, a substantive value domain and the shared sentinel domain |
@@ -66,8 +66,10 @@ Every codelist node passes the cdifCodelist building block's JSON Schema, `rules
 ## 3. What the projection could not say
 
 Left out rather than filled in, because the package does not carry it: a distribution of the records (the records
-are not public; the model is), a contact point, spatial and temporal coverage, statistics. CDIF marks all of these
-recommended, not required.
+are not public; the model is), spatial and temporal coverage, statistics. CDIF marks all of these recommended, not
+required. One recommended item is declared rather than read from the package, and said so here: the publisher's
+contact point (`contact@axius-sdc.com` on the sample, in `src/sdccdif/data/declared.json`; `--contact-name` and
+`--contact-email` override it, and an empty address omits it).
 
 And in the other direction, what the record carries that the description has no place for, stated so a reader knows
 where to look rather than as a shortcoming of either side:

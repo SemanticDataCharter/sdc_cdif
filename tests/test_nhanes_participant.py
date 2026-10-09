@@ -141,6 +141,15 @@ def test_enumerated_values_keep_their_definitions_and_codes(doc):
     assert sbp["schema:unitText"] == "mmHg | kPa | atm | psi" and "cdif:simpleUnitOfMeasure" not in sbp
 
 
+def test_the_contact_point_is_declared_input(doc, model):
+    from sdccdif.cdif import load_declared
+    cp = doc["@graph"][0]["schema:publisher"]["schema:contactPoint"]
+    assert cp == {"@type": ["schema:ContactPoint"], "schema:name": "Axius SDC, Inc. CDIF contact", "schema:email": "contact@axius-sdc.com"}
+    assert doc["@graph"][0]["schema:subjectOf"]["schema:maintainer"]["schema:contactPoint"] == cp
+    silent = write_cdif(model, today=DAY, declared=load_declared(None, ""))
+    assert "schema:contactPoint" not in silent["@graph"][0]["schema:publisher"]
+
+
 def test_the_writer_refuses_a_model_without_its_package(tmp_path):
     from sdccdif.package import PackageError
     (tmp_path / "dm-abc.xsd").write_bytes(b"<xsd:schema/>")
