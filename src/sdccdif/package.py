@@ -85,6 +85,9 @@ def fetch_package(ct_id: str, save_to: str | Path | None = None, host: str = DEF
 
     catalog = get(f"{host}/api/v1/catalog/dm/{ct_id}/").json()
     jsonld = get(f"{host}/api/v1/catalog/dm/{ct_id}/jsonld/").json()
+    if isinstance(jsonld, dict) and "download_url" in jsonld and "components" not in jsonld:
+        # a storage-backed artifact: the catalog answers with a pointer to the file, not the file
+        jsonld = get(jsonld["download_url"]).json()
     xsd = get(f"{host}/dmlib/dm-{ct_id}.xsd").content
     versions = get(f"{host}/dmlib/dm-{ct_id}.versions.json").json()
     pkg = ModelPackage(ct_id=ct_id, jsonld=jsonld, xsd_bytes=xsd, catalog=catalog, versions=versions, host=host)
