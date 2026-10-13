@@ -1,0 +1,25 @@
+name: release
+# Builds and publishes sdccdif to PyPI on a v* tag through trusted publishing. The project must be registered on PyPI
+# with this repository, this workflow file and the environment `pypi` as a pending publisher before the first tag.
+on:
+  push:
+    tags: ["v*"]
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Tag matches the package version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          file=$(grep -m1 '^version' pyproject.toml | cut -d'"' -f2)
+          [ "$tag" = "$file" ] || { echo "::error::tag v$tag does not match pyproject version $file"; exit 1; }
+      - run: pip install build && python -m build
+      - uses: pypa/gh-action-pypi-publish@release/v1
