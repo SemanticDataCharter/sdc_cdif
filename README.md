@@ -1,5 +1,7 @@
 # sdc_cdif
 
+<!-- mcp-name: io.github.SemanticDataCharter/sdccdif -->
+
 One Semantic Data Charter model, described in CDIF.
 
 `sdccdif` reads a published SDC model's package and writes the CDIF JSON-LD that describes the collection of
@@ -115,6 +117,18 @@ behave, so the next implementer spends the day on their own document rather than
   strings.
 - **The SKOS prefix is not in the frame's context**, so framed output shows full SKOS IRIs until the validator's
   compaction step adds it. Expected; noted so the intermediate output does not alarm anyone.
+
+## MCP server
+
+`sdccdif` is also an MCP server, registered as `io.github.SemanticDataCharter/sdccdif`, so an assistant that can read a
+published model with `sdcreader` can ask for its CDIF description. One tool, `write_cdif`, over the same
+function the CLI calls; stdio; read-only apart from the document it returns; no account; no tool takes a URL (the
+catalog host is fixed at start with `--host`). The protocol scaffold is `sdcreader.mcp`, shared by every SDC
+projection server.
+
+```
+uvx sdccdif mcp            # or: sdccdif-mcp, or sdccdif mcp
+```
 
 ## Layout
 

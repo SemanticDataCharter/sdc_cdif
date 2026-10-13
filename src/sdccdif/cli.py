@@ -16,8 +16,16 @@ from sdcreader import DEFAULT_HOST, PackageError, fetch_package, load_package
 
 
 def main(argv=None) -> int:
+    argv = list(sys.argv[1:]) if argv is None else list(argv)
+    if argv[:1] == ["mcp"]:
+        # The MCP registry launches `sdccdif mcp [--host ...]`; the server owns those options.
+        from .mcp_server import main as mcp_main
+
+        mcp_main(argv[1:])
+        return 0
     p = argparse.ArgumentParser(prog="sdccdif", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("mcp", help="run the MCP stdio server (same arguments as sdccdif-mcp)")
     w = sub.add_parser("write", help="write the CDIF JSON-LD for one model")
     src = w.add_mutually_exclusive_group(required=True)
     src.add_argument("--package", help="directory holding dm-<ct>.jsonld and dm-<ct>.xsd (and catalog.json, versions.json)")

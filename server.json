@@ -1,0 +1,29 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.SemanticDataCharter/sdccdif",
+  "description": "CODATA CDIF descriptions of published Semantic Data Charter models; read-only, no account.",
+  "repository": {
+    "url": "https://github.com/SemanticDataCharter/sdc_cdif",
+    "source": "github"
+  },
+  "version": "4.1.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "sdccdif",
+      "version": "4.1.0",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp",
+          "description": "Run the MCP stdio server rather than the CLI."
+        }
+      ]
+    }
+  ]
+}
