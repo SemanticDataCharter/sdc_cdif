@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sdccdif"
-version = "4.1.0"
+version = "4.1.1"
 description = "Describe a published Semantic Data Charter model's governed data records in CDIF JSON-LD (Core, Discovery, Data Description, Codelist)."
 readme = "README.md"
 requires-python = ">=3.10"
