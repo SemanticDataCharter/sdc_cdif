@@ -8,5 +8,5 @@ values. The schema the records conform to is cited by its published URL and SHA-
 from sdcreader import ModelPackage, load_package, fetch_package, read_model
 from .cdif import write_cdif
 
-__version__ = "4.1.0"
+__version__ = "4.1.1"
 __all__ = ["ModelPackage", "load_package", "fetch_package", "read_model", "write_cdif", "__version__"]
