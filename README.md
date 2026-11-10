@@ -130,6 +130,8 @@ projection server.
 uvx sdccdif mcp            # or: sdccdif-mcp, or sdccdif mcp
 ```
 
+Also listed on [mcprush](https://mcprush.com/semanticdatacharter/sdccdif-mcp).
+
 ## Layout
 
 - The model's package is read with [`sdcreader`](https://github.com/SemanticDataCharter/sdcreader) (`load_package`,
